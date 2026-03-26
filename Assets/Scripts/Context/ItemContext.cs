@@ -1,6 +1,6 @@
 public class ItemContext
 {
-    IItem item;
+    private IItem item;
 
     public ItemContext() { }
 
@@ -14,8 +14,8 @@ public class ItemContext
         this.item = item;
     }
 
-    public void Action()
+    public void Use(GameDirector director)
     {
-        item?.hitPlayer();
+        item?.Apply(director);
     }
 }

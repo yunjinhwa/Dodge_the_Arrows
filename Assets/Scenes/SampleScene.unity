@@ -440,12 +440,15 @@ MonoBehaviour:
   hpGauge: {fileID: 1892172008}
   hpText: {fileID: 1826447724}
   gameOverText: {fileID: 68673058}
-  start: {fileID: 1781141583}
+  startButton: {fileID: 1781141583}
   scoreText: {fileID: 1077583846}
+  playerController: {fileID: 372148944}
+  arrowGenerator: {fileID: 337879528}
+  itemGenerator: {fileID: 337879530}
+  maxHp: 1
   addScore: 1
   scoreIncreaseRate: 1
   scorePauseDuration: 0.5
-  scorePauseRemaining: 0
 --- !u!1 &337879527
 GameObject:
   m_ObjectHideFlags: 0
@@ -476,9 +479,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed99b0602cc12e6469fe646ad92e5383, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ArrowGenerator
-  arrowPrefab: {fileID: 3809510960640848406, guid: b57a840507f80924c9f91a9f21f5f34e, type: 3}
   minSpan: 0.2
   maxSpan: 2
+  minX: -6
+  maxX: 6
+  spawnY: 7
+  arrowPrefabs:
+  - {fileID: 3809510960640848406, guid: b57a840507f80924c9f91a9f21f5f34e, type: 3}
+  - {fileID: 7755303428984843405, guid: 0663ff7d65516bf4b9fc520116e6503e, type: 3}
 --- !u!4 &337879529
 Transform:
   m_ObjectHideFlags: 0
@@ -506,12 +514,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4519ef52e4ba59f47add0f56cac70889, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ItemGenerator
-  healItemPrefab: {fileID: 1588163384312473023, guid: 80e23242aa27b84429470ee390f347e9, type: 3}
-  minSpan: 3
-  maxSpan: 6
+  minSpan: 2
+  maxSpan: 4
   minX: -6
   maxX: 6
   spawnY: 7
+  healItemPrefab: {fileID: 1588163384312473023, guid: 80e23242aa27b84429470ee390f347e9, type: 3}
 --- !u!1 &372148943
 GameObject:
   m_ObjectHideFlags: 0
@@ -542,7 +550,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b872a37566b43fb4e8151e3737bd18bc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerController
-  speed: 10
+  moveSpeed: 10
+  minX: -8
+  maxX: 8
 --- !u!212 &372148945
 SpriteRenderer:
   serializedVersion: 2

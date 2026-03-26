@@ -1,4 +1,4 @@
 public interface IItem
 {
-    void hitPlayer();
+    void Apply(GameDirector director);
 }

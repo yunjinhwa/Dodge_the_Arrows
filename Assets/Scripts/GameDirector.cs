@@ -1,233 +1,213 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
 
 public class GameDirector : MonoBehaviour
 {
+    public static GameDirector Instance { get; private set; }
+
+    [Header("UI")]
     [SerializeField] private Image hpGauge;
     [SerializeField] private TextMeshProUGUI hpText;
     [SerializeField] private TextMeshProUGUI gameOverText;
-    [SerializeField] private Button start;
+    [SerializeField] private Button startButton;
     [SerializeField] private TextMeshProUGUI scoreText;
 
-    [Header("Game_difficulty")]
+    [Header("Scene References")]
+    [SerializeField] private PlayerController playerController;
+    [SerializeField] private ArrowGenerator arrowGenerator;
+    [SerializeField] private ItemGenerator itemGenerator;
+
+    [Header("Gameplay")]
+    [SerializeField] private float maxHp = 1f;
     [SerializeField] private int addScore = 1;
-    [SerializeField] private float scoreIncreaseRate = 10f;   // 몇 초마다 1점
-    [SerializeField] private float scorePauseDuration = 0.5f; // 피격/회복 시 점수 일시정지 시간
-    [SerializeField] private float scorePauseRemaining = 0f;  // 남은 정지 시간
+    [SerializeField] private float scoreIncreaseRate = 10f;
+    [SerializeField] private float scorePauseDuration = 0.5f;
 
-    private float scoreTimer = 0f;
-    private bool isGameOver = false;
+    private float currentHp;
+    private float scoreTimer;
+    private float scorePauseRemaining;
+    private bool isGameOver;
 
-    void Start()
+    private void Awake()
     {
-        if (hpGauge == null) Debug.LogError("hpGauge is not assigned in the inspector.");
-        if (hpText == null) Debug.LogError("hpText is not assigned in the inspector.");
-        if (gameOverText == null) Debug.LogError("gameOverText is not assigned in the inspector.");
-        if (start == null) Debug.LogError("start Button is not assigned in the inspector.");
-        if (scoreText == null) Debug.LogError("scoreText is not assigned in the inspector.");
-
-        if (GameStateManager.Instance.CurrentState == GameState.IsPlaying)
+        if (Instance != null && Instance != this)
         {
-            if (gameOverText != null) gameOverText.gameObject.SetActive(false);
-            if (start != null) start.gameObject.SetActive(false);
+            Destroy(gameObject);
+            return;
         }
 
-        // 시작 시 UI/상태 초기화
-        if (hpGauge != null) hpGauge.fillAmount = 1f;
-        isGameOver = false;
-        scoreTimer = 0f;
-        scorePauseRemaining = 0f;
+        Instance = this;
+        ResolveReferences();
     }
 
-    public void DecreaseHp()
+    private void Start()
     {
-        if (isGameOver) return;
-        if (hpGauge == null) return;
+        InitializeGame();
+        RefreshUI();
+    }
 
-        hpGauge.fillAmount = Mathf.Clamp01(hpGauge.fillAmount - 0.1f);
+    private void Update()
+    {
+        if (GameStateManager.Instance.CurrentState != GameState.IsPlaying)
+            return;
 
-        if (hpGauge.fillAmount <= 0f && !isGameOver)
+        UpdateScoreTimer();
+        RefreshUI();
+    }
+
+    public void DamagePlayer(float damage)
+    {
+        if (isGameOver)
+            return;
+
+        currentHp = Mathf.Clamp(currentHp - damage, 0f, maxHp);
+
+        if (currentHp <= 0f)
         {
-            GameStateManager.Instance.SetGameState(GameState.GameOver);
-            OnGameOver();
+            GameOver();
         }
     }
 
-    public void IncreaseHp(float heal)
+    public void HealPlayer(float amount)
     {
-        if (isGameOver) return;
-        if (hpGauge == null) return;
+        if (isGameOver)
+            return;
 
-        hpGauge.fillAmount = Mathf.Clamp01(hpGauge.fillAmount + heal);
+        currentHp = Mathf.Clamp(currentHp + amount, 0f, maxHp);
     }
 
     public void PauseScore()
     {
-        if (scorePauseDuration <= 0f) return;
         scorePauseRemaining = Mathf.Max(scorePauseRemaining, scorePauseDuration);
-    }
-
-    void OnGameOver()
-    {
-        if (isGameOver) return;
-        isGameOver = true;
-
-        // UI 표시
-        if (gameOverText != null) gameOverText.gameObject.SetActive(true);
-        if (start != null) start.gameObject.SetActive(true);
-
-        // system 오브젝트의 생성기들 비활성화
-        GameObject systemObj = null;
-        try { systemObj = GameObject.FindWithTag("system"); }
-        catch { systemObj = null; }
-
-        if (systemObj != null)
-        {
-            ArrowGenerator arrowGen = systemObj.GetComponent<ArrowGenerator>();
-            if (arrowGen != null) arrowGen.enabled = false;
-
-            ItemGenerator itemGen = systemObj.GetComponent<ItemGenerator>();
-            if (itemGen != null) itemGen.enabled = false;
-        }
-
-        // 모든 화살 비활성화
-        GameObject[] arrowObjs = GameObject.FindGameObjectsWithTag("arrow");
-        foreach (var go in arrowObjs)
-        {
-            if (go == null) continue;
-
-            ArrowController ac = go.GetComponent<ArrowController>();
-            if (ac != null) ac.enabled = false;
-        }
-
-        // 모든 아이템 비활성화
-        // 힐 아이템 프리팹 태그를 "item" 으로 설정해둬야 함
-        GameObject[] itemObjs = GameObject.FindGameObjectsWithTag("Item");
-        foreach (var go in itemObjs)
-        {
-            if (go == null) continue;
-
-            ItemController ic = go.GetComponent<ItemController>();
-            if (ic != null) ic.enabled = false;
-        }
-
-        // 플레이어 입력/이동 중지
-        GameObject playerObj = null;
-        try { playerObj = GameObject.FindWithTag("Player"); }
-        catch { playerObj = null; }
-
-        if (playerObj != null)
-        {
-            PlayerController pc = playerObj.GetComponent<PlayerController>();
-            if (pc != null) pc.enabled = false;
-        }
-
-        // 게임 정지
-        Time.timeScale = 0f;
-
-        Debug.Log("Game Over");
     }
 
     public void RestartGame()
     {
-        // 시간 복원
         Time.timeScale = 1f;
 
-        // 점수 초기화
-        scoreTimer = 0f;
-        scorePauseRemaining = 0f;
         ScoreManager.Instance.ResetScore();
+        GameStateManager.Instance.ResetToPlaying();
 
-        // HP 초기화
-        if (hpGauge != null) hpGauge.fillAmount = 1f;
+        DestroyAll<ArrowController>();
+        DestroyAll<ItemController>();
 
-        // UI 초기화
-        if (gameOverText != null) gameOverText.gameObject.SetActive(false);
-        if (start != null) start.gameObject.SetActive(false);
-
-        // 모든 화살 제거
-        GameObject[] arrowObjs = GameObject.FindGameObjectsWithTag("arrow");
-        foreach (var go in arrowObjs)
+        if (arrowGenerator != null)
         {
-            if (go != null) Destroy(go);
+            arrowGenerator.enabled = true;
+            arrowGenerator.ResetSpawner();
         }
 
-        // 모든 아이템 제거
-        // 힐 아이템 프리팹 태그를 "item" 으로 설정해둬야 함
-        GameObject[] itemObjs = GameObject.FindGameObjectsWithTag("Item");
-        foreach (var go in itemObjs)
+        if (itemGenerator != null)
         {
-            if (go != null) Destroy(go);
+            itemGenerator.enabled = true;
+            itemGenerator.ResetSpawner();
         }
 
-        // 생성기 재활성화
-        GameObject systemObj = null;
-        try { systemObj = GameObject.FindWithTag("system"); }
-        catch { systemObj = null; }
-
-        if (systemObj != null)
+        if (playerController != null)
         {
-            ArrowGenerator arrowGen = systemObj.GetComponent<ArrowGenerator>();
-            if (arrowGen != null) arrowGen.enabled = true;
-
-            ItemGenerator itemGen = systemObj.GetComponent<ItemGenerator>();
-            if (itemGen != null) itemGen.enabled = true;
+            playerController.enabled = true;
+            playerController.ResetPosition();
         }
 
-        // 플레이어 재활성화 + 위치 초기화
-        GameObject playerObj = null;
-        try { playerObj = GameObject.FindWithTag("Player"); }
-        catch { playerObj = null; }
-
-        if (playerObj != null)
-        {
-            PlayerController pc = playerObj.GetComponent<PlayerController>();
-            if (pc != null) pc.enabled = true;
-
-            playerObj.transform.position = new Vector3(
-                0,
-                playerObj.transform.position.y,
-                playerObj.transform.position.z
-            );
-        }
-
-        isGameOver = false;
-        GameStateManager.Instance.SetGameState(GameState.IsPlaying);
+        InitializeGame();
+        RefreshUI();
     }
 
-    void Update()
+    private void GameOver()
     {
-        if (GameStateManager.Instance.CurrentState == GameState.IsPlaying)
+        if (isGameOver)
+            return;
+
+        isGameOver = true;
+        GameStateManager.Instance.SetGameState(GameState.GameOver);
+
+        if (arrowGenerator != null) arrowGenerator.enabled = false;
+        if (itemGenerator != null) itemGenerator.enabled = false;
+        if (playerController != null) playerController.enabled = false;
+
+        SetEnabledForAll<ArrowController>(false);
+        SetEnabledForAll<ItemController>(false);
+
+        if (gameOverText != null) gameOverText.gameObject.SetActive(true);
+        if (startButton != null) startButton.gameObject.SetActive(true);
+
+        Time.timeScale = 0f;
+    }
+
+    private void InitializeGame()
+    {
+        currentHp = maxHp;
+        scoreTimer = 0f;
+        scorePauseRemaining = 0f;
+        isGameOver = false;
+
+        if (gameOverText != null) gameOverText.gameObject.SetActive(false);
+        if (startButton != null) startButton.gameObject.SetActive(false);
+    }
+
+    private void UpdateScoreTimer()
+    {
+        if (scorePauseRemaining > 0f)
         {
-            if (hpText != null && hpGauge != null)
-            {
-                hpText.text = Mathf.RoundToInt(hpGauge.fillAmount * 100) + "%";
-            }
+            scorePauseRemaining -= Time.deltaTime;
+            if (scorePauseRemaining < 0f)
+                scorePauseRemaining = 0f;
 
-            if (scoreText != null)
-            {
-                scoreText.text = "Score: " + ScoreManager.Instance.CurrentScore;
-            }
+            return;
+        }
 
-            if (scoreIncreaseRate > 0f)
-            {
-                if (scorePauseRemaining > 0f)
-                {
-                    scorePauseRemaining -= Time.deltaTime;
-                    if (scorePauseRemaining < 0f) scorePauseRemaining = 0f;
-                }
-                else
-                {
-                    scoreTimer += Time.deltaTime;
+        if (scoreIncreaseRate <= 0f)
+            return;
 
-                    while (scoreTimer >= scoreIncreaseRate)
-                    {
-                        ScoreManager.Instance.AddScore(addScore);
-                        scoreTimer -= scoreIncreaseRate;
-                    }
-                }
-            }
+        scoreTimer += Time.deltaTime;
+
+        while (scoreTimer >= scoreIncreaseRate)
+        {
+            ScoreManager.Instance.AddScore(addScore);
+            scoreTimer -= scoreIncreaseRate;
+        }
+    }
+
+    private void RefreshUI()
+    {
+        if (hpGauge != null)
+            hpGauge.fillAmount = maxHp <= 0f ? 0f : currentHp / maxHp;
+
+        if (hpText != null)
+            hpText.text = Mathf.RoundToInt((currentHp / maxHp) * 100f) + "%";
+
+        if (scoreText != null)
+            scoreText.text = "Score: " + ScoreManager.Instance.CurrentScore;
+    }
+
+    private void ResolveReferences()
+    {
+        if (playerController == null)
+            playerController = FindAnyObjectByType<PlayerController>();
+
+        if (arrowGenerator == null)
+            arrowGenerator = FindAnyObjectByType<ArrowGenerator>();
+
+        if (itemGenerator == null)
+            itemGenerator = FindAnyObjectByType<ItemGenerator>();
+    }
+
+    private void SetEnabledForAll<T>(bool enabled) where T : Behaviour
+    {
+        T[] objects = FindObjectsByType<T>(FindObjectsSortMode.None);
+        foreach (T obj in objects)
+        {
+            obj.enabled = enabled;
+        }
+    }
+
+    private void DestroyAll<T>() where T : Component
+    {
+        T[] objects = FindObjectsByType<T>(FindObjectsSortMode.None);
+        foreach (T obj in objects)
+        {
+            Destroy(obj.gameObject);
         }
     }
 }

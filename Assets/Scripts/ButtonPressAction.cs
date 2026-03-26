@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 
-public class ButtonAction : MonoBehaviour, IPointerDownHandler, IPointerUpHandler
+public class ButtonPressAction : MonoBehaviour, IPointerDownHandler, IPointerUpHandler
 {
     [SerializeField] private ButtonState buttonState;
 
